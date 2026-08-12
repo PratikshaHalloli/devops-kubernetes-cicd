@@ -38,10 +38,10 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build Docker Image') {  
             steps {
                 sh """
-                    docker build \
+                    docker build  --no-cache  \     
                     -t ${IMAGE_NAME} \
                     ./app
                 """
