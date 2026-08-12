@@ -83,7 +83,7 @@ pipeline {
                 sh """
                     aws eks update-kubeconfig \
                     --region ${AWS_REGION} \
-                    --name devops-eks-cluster
+                    --name devops-demo-eks
 
                     kubectl apply -k k8s/
                 """
