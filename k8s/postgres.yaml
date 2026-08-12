@@ -56,10 +56,12 @@ spec:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
   volumeClaimTemplates:
-    - metadata:
-        name: postgres-data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 2Gi
+  - metadata:
+      name: postgres-data
+    spec:
+      storageClassName: gp2
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
