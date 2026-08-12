@@ -1,13 +1,15 @@
 {
   "name": "devops-demo-api",
   "version": "1.0.0",
-  "description": "Simple Node.js application for DevOps assignment",
+  "private": true,
+  "description": "Minimal production-style API for Kubernetes and CI/CD challenge",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "node --test"
   },
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "pg": "^8.16.3"
   }
 }
