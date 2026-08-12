@@ -1,11 +1,10 @@
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: postgres
   namespace: devops-demo
 
 spec:
-  serviceName: postgres
   replicas: 1
 
   selector:
@@ -59,13 +58,6 @@ spec:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
 
-  volumeClaimTemplates:
-    - metadata:
-        name: postgres-data
-      spec:
-        storageClassName: gp2
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 2Gi
+      volumes:
+        - name: postgres-data
+          emptyDir: {}
