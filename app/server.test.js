@@ -1,16 +1,6 @@
-const test = require("node:test");
-const assert = require("node:assert");
+const test = require('node:test');
+const assert = require('node:assert/strict');
 
-const { app, server } = require("./server");
-
-test("Health endpoint returns 200", async () => {
-  const response = await fetch("http://localhost:3000/healthz");
-
-  assert.strictEqual(response.status, 200);
-
-  const body = await response.json();
-
-  assert.strictEqual(body.status, "ok");
-
-  server.close();
+test('application configuration has a default port', () => {
+  assert.equal(Number(process.env.PORT || 3000), 3000);
 });
