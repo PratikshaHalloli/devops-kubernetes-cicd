@@ -1,102 +1,119 @@
 pipeline {
+
     agent any
 
     environment {
         AWS_REGION = 'ap-south-1'
-        EKS_CLUSTER_NAME = 'devops-demo-eks'
-        ECR_REPOSITORY = 'devops-demo-api'
-        AWS_CREDENTIALS_ID = 'aws-jenkins-creds'
-        NAMESPACE = 'devops-demo'
+        AWS_ACCOUNT_ID = '799442263888'
+        ECR_REPOSITORY = 'devops-demo'
+
+        ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+        IMAGE_TAG = "${BUILD_NUMBER}"
+
+        IMAGE_NAME = "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Install & Test') {
+        stage('Install Dependencies') {
             steps {
                 dir('app') {
-                    sh 'npm install'
+                    sh 'npm ci'
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                dir('app') {
                     sh 'npm test'
                 }
             }
         }
 
-        stage('AWS Login & ECR') {
+        stage('Build Docker Image') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: "${AWS_CREDENTIALS_ID}"
-                ]]) {
-                    sh '''
-                        set -e
-                        aws sts get-caller-identity
-                        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-                        ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-                        aws ecr get-login-password --region "${AWS_REGION}" | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
-                    '''
-                }
+                sh """
+                    docker build \
+                    -t ${IMAGE_NAME} \
+                    ./app
+                """
             }
         }
 
-        stage('Build & Push Image') {
+        stage('Login to ECR') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: "${AWS_CREDENTIALS_ID}"
-                ]]) {
-                    sh '''
-                        set -e
-                        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-                        IMAGE="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${BUILD_NUMBER}-${GIT_COMMIT}"
-                        docker build -t "${IMAGE}" ./app
-                        docker push "${IMAGE}"
-                        echo "${IMAGE}" > image.txt
-                    '''
-                }
+                sh """
+                    aws ecr get-login-password \
+                    --region ${AWS_REGION} | \
+                    docker login \
+                    --username AWS \
+                    --password-stdin ${ECR_REGISTRY}
+                """
             }
         }
 
-        stage('Configure EKS') {
+        stage('Push Image to ECR') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: "${AWS_CREDENTIALS_ID}"
-                ]]) {
-                    sh '''
-                        aws eks update-kubeconfig --region "${AWS_REGION}" --name "${EKS_CLUSTER_NAME}"
-                        kubectl get nodes
-                    '''
-                }
+                sh """
+                    docker push ${IMAGE_NAME}
+                """
+            }
+        }
+
+        stage('Update Kubernetes Manifest') {
+            steps {
+                sh """
+                    sed -i \
+                    "s|image: IMAGE_PLACEHOLDER|image: ${IMAGE_NAME}|g" \
+                    k8s/deployment.yml
+                """
             }
         }
 
         stage('Deploy to EKS') {
             steps {
-                sh '''
-                    set -e
-                    IMAGE=$(cat image.txt)
+                sh """
+                    aws eks update-kubeconfig \
+                    --region ${AWS_REGION} \
+                    --name devops-demo-eks
+
                     kubectl apply -k k8s/
-                    kubectl -n "${NAMESPACE}" set image deployment/devops-demo-api api="${IMAGE}"
-                    kubectl -n "${NAMESPACE}" rollout status deployment/devops-demo-api --timeout=180s
-                    kubectl -n "${NAMESPACE}" get pods,svc
-                '''
+                """
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh """
+                    kubectl rollout status \
+                    deployment/devops-demo-api \
+                    -n devops-demo \
+                    --timeout=180s
+                """
             }
         }
     }
 
     post {
+
         success {
-            echo 'Jenkins CI/CD pipeline completed successfully.'
+            echo 'Deployment completed successfully!'
         }
+
         failure {
-            echo 'Pipeline failed. Check the failed stage and Jenkins console output.'
+            echo 'Pipeline failed. Check the stage logs.'
         }
+
         always {
-            archiveArtifacts artifacts: 'image.txt', allowEmptyArchive: true
+            echo "Build number: ${BUILD_NUMBER}"
         }
     }
 }
