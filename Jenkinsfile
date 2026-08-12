@@ -73,7 +73,7 @@ pipeline {
                 sh """
                     sed -i \
                     "s|image: IMAGE_PLACEHOLDER|image: ${IMAGE_NAME}|g" \
-                    k8s/deployment.yaml
+                    k8s/deployment.yml
                 """
             }
         }
