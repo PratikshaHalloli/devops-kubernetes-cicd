@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = 'us-east-1'
+        AWS_REGION = 'ap-south-1'
         EKS_CLUSTER_NAME = 'devops-demo-eks'
         ECR_REPOSITORY = 'devops-demo-api'
         AWS_CREDENTIALS_ID = 'aws-jenkins-creds'
